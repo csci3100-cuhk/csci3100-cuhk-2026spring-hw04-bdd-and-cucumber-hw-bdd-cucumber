@@ -1,0 +1,33 @@
+{
+    "name": "CSCI3100 Course Environment",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/ruby:1": {
+            "version": "3.3.8"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                // This disables the inline suggestions (the gray ghost text)
+                "github.copilot.inlineSuggest.enable": false,
+                // This disables the Copilot panel
+                "github.copilot.editor.enableAutoCompletions": false,
+                // This explicitly tells the Ruby extension not to use Copilot
+                "ruby.intellisense": "rubyLocate",
+                // This prevents the extension from even starting in this workspace
+                "extensions.ignoreRecommendations": true
+            },
+            "extensions": [
+                "rebornix.Ruby",
+                "castwide.solargraph"
+                // DO NOT include GitHub.copilot here
+            ]
+        }
+    },
+    "postCreateCommand": "gem install bundler:2.3.7 && bundle config set path 'vendor/bundle' && bundle install --jobs 4 --retry 3",
+    "remoteUser": "vscode"
+}

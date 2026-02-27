@@ -1,0 +1,52 @@
+# CHIP 7.7: Behavior Driven Development with Cucumber
+
+In this assignment, you will create user stories to describe a feature of a SaaS app, use the [Cucumber][cuke] tool to turn those stories into executable acceptance tests, and run the tests against your SaaS app.
+
+[cuke]: https://cucumber.io/docs/guides/10-minute-tutorial/
+
+Specifically, you will write Cucumber scenarios that test the happy paths of parts 1-3 of the Rails Intro assignment (hw03), in which you added filtering and sorting to RottenPotatoes' `index` view for Movies. (Remember, the _happy paths_ are the steps users take when they successfully use an application.)
+
+The app code in `rottenpotatoes` contains a "canonical" solution to the Rails Intro assignment against which to write your scenarios, and the necessary scaffolding for the first couple of scenarios.
+
+## What you need to do
+
+- Fill in the missing steps in `features/filter_movie_list.feature` and `features/sort_movie_list.feature`.
+- Implement the pending step definitions in `features/step_definitions/movie_steps.rb`.
+- Use the existing UI elements in the movies index page (ratings checkboxes, `sort_by` dropdown, `ratings_submit` button) when writing steps.
+- Run the acceptance tests with `bundle exec cucumber` and make sure they pass.
+
+## Testing your work locally
+
+Run the full test suite with:
+
+```bash
+bundle install
+bundle exec rails db:migrate RAILS_ENV=test
+bundle exec cucumber
+```
+
+All scenarios should pass (green). This verifies the **PASS** half of the autograder.
+
+To also pass the **FAIL** half, your step definitions must contain **real assertions** — not just `pending` or empty implementations. The autograder runs your scenarios a second time against a deliberately broken controller and expects your steps to detect the failure. If your steps only check that pages load without asserting on the actual content or order, they will not catch the broken behavior and you will lose those points.
+
+**In short:** `bundle exec cucumber` all green is necessary but not sufficient. Make sure your steps assert on what the page actually shows.
+
+<!-- ## Get the assignment code
+
+As in previous CHIPS, you will need to authenticate `git` with GitHub to clone the repository for this assignment. The clone URL below will require that you use [public key authentication](https://docs.codio.com/common/settings/github.html).
+
+**If your course has provided you with a repository, please clone that:**
+
+```sh
+git clone git@github.com:[YOUR_CLASS_GITHUB]/[YOUR_PERSONAL_REPO].git rottenpotatoes
+cd rottenpotatoes
+```
+
+Otherwise, you may choose to fork, and then close the public template.
+
+```sh
+git clone git@github.com:saasbook/hw-bdd-cucumber.git rottenpotatoes
+cd rottenpotatoes
+```
+
+**⚠️ Your directory must be named `rottenpotatoes`.** -->

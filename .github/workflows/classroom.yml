@@ -1,0 +1,154 @@
+name: Autograding Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.8"
+          bundler-cache: false
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libxml2-dev libxslt1-dev libsqlite3-dev
+
+      - name: Decrypt autograder
+        env:
+          AUTOGRADER_KEY: ${{ secrets.HW04_AUTOGRADER_KEY }}
+        run: |
+          mkdir -p autograder
+          openssl enc -aes-256-cbc -pbkdf2 -d -pass pass:"$AUTOGRADER_KEY" \
+            -in .github/secure/autograder.tgz.enc \
+            -out /tmp/autograder.tgz
+          tar -xzf /tmp/autograder.tgz -C autograder
+          rm -f /tmp/autograder.tgz
+
+      - name: Prepare submission
+        run: |
+          # Copy into both locations:
+          # 1. autograder/submission/features  (for reference)
+          # 2. autograder/secure/submission/features  (where run_autograder actually looks)
+          mkdir -p autograder/submission/features
+          mkdir -p autograder/secure/submission/features
+          if [ -d features ]; then
+            cp -R features/* autograder/submission/features/
+            cp -R features/* autograder/secure/submission/features/
+          fi
+
+      - name: Run autograder
+        continue-on-error: true
+        run: |
+          mkdir -p autograder/results
+          echo "Debug: autograder/secure contents"
+          ls -la autograder/secure
+          echo "Debug: autograder/submission contents"
+          ls -la autograder/submission
+          echo "Debug: autograder/submission/features contents"
+          ls -la autograder/submission/features
+          cd autograder/secure
+          /bin/bash -x ./run_autograder
+          echo "Debug: autograder/results contents"
+          ls -la ../results
+
+      - name: Prepare grading results
+        id: prepare-results
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+
+          results_path = "autograder/results/results.json"
+          tests = []
+          results_error = ""
+          if os.path.exists(results_path):
+            with open(results_path) as f:
+              data = json.load(f)
+            tests = data.get("tests", [])
+          else:
+            results_error = "Missing results.json"
+
+          test_map = {t.get("name"): t for t in tests}
+
+          expected = [
+            ("pass_sort_movies_alphabetically", "EXPECT PASS: sort movies alphabetically"),
+            ("pass_sort_movies_release_date", "EXPECT PASS: sort movies in increasing order of release date"),
+            ("pass_restrict_pg_r", "EXPECT PASS: restrict to movies with \"PG\" or \"R\" ratings"),
+            ("pass_all_ratings", "EXPECT PASS: all ratings selected"),
+            ("fail_sort_movies_alphabetically", "EXPECT FAIL: sort movies alphabetically"),
+            ("fail_sort_movies_release_date", "EXPECT FAIL: sort movies in increasing order of release date"),
+            ("fail_restrict_pg_r", "EXPECT FAIL: restrict to movies with \"PG\" or \"R\" ratings"),
+            ("fail_all_ratings", "EXPECT FAIL: all ratings selected"),
+          ]
+
+          runners = [e[0] for e in expected]
+
+          def encode_payload(test, fallback_name):
+            score = test.get("score", 0) if test else 0
+            t_max = test.get("max_score", 0) if test else 0
+            status = "pass" if t_max > 0 and score == t_max else "fail"
+            message = ""
+            if test:
+              message = test.get("output", "") or ""
+            elif results_error:
+              message = results_error
+            payload = {
+              "version": 1,
+              "status": status,
+              "max_score": t_max,
+              "tests": [
+                {
+                  "name": test.get("name", fallback_name) if test else fallback_name,
+                  "status": status,
+                  "score": score,
+                  "message": message,
+                  "test_code": "",
+                  "filename": "",
+                  "line_no": 0,
+                  "duration": 0
+                }
+              ]
+            }
+            return base64.b64encode(json.dumps(payload).encode()).decode()
+
+          for runner, test_name in expected:
+            env_key = f"{runner.upper()}_RESULTS"
+            test = test_map.get(test_name)
+            with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"{env_key}={encode_payload(test, test_name)}\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"runners={','.join(runners)}\n")
+          PY
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        if: always()
+        with:
+          runners: ${{ steps.prepare-results.outputs.runners }}
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autograder-results
+          path: autograder/results/results.json
