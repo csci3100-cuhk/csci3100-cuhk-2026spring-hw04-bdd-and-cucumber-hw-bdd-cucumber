@@ -15,6 +15,22 @@ The app code in `rottenpotatoes` contains a "canonical" solution to the Rails In
 - Use the existing UI elements in the movies index page (ratings checkboxes, `sort_by` dropdown, `ratings_submit` button) when writing steps.
 - Run the acceptance tests with `bundle exec cucumber` and make sure they pass.
 
+## Testing your work locally
+
+Run the full test suite with:
+
+```bash
+bundle install
+bundle exec rails db:migrate RAILS_ENV=test
+bundle exec cucumber
+```
+
+All scenarios should pass (green). This verifies the **PASS** half of the autograder.
+
+To also pass the **FAIL** half, your step definitions must contain **real assertions** — not just `pending` or empty implementations. The autograder runs your scenarios a second time against a deliberately broken controller and expects your steps to detect the failure. If your steps only check that pages load without asserting on the actual content or order, they will not catch the broken behavior and you will lose those points.
+
+**In short:** `bundle exec cucumber` all green is necessary but not sufficient. Make sure your steps assert on what the page actually shows.
+
 <!-- ## Get the assignment code
 
 As in previous CHIPS, you will need to authenticate `git` with GitHub to clone the repository for this assignment. The clone URL below will require that you use [public key authentication](https://docs.codio.com/common/settings/github.html).
