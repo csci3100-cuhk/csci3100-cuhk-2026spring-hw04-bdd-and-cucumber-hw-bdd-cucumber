@@ -1,0 +1,123 @@
+name: Autograding Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.8"
+          bundler-cache: false
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libxml2-dev libxslt1-dev libsqlite3-dev
+
+      - name: Decrypt autograder
+        env:
+          AUTOGRADER_KEY: ${{ secrets.HW04_AUTOGRADER_KEY }}
+        run: |
+          mkdir -p autograder
+          openssl enc -aes-256-cbc -pbkdf2 -d -pass pass:"$AUTOGRADER_KEY" \
+            -in .github/secure/autograder.tgz.enc \
+            -out /tmp/autograder.tgz
+          tar -xzf /tmp/autograder.tgz -C autograder
+          rm -f /tmp/autograder.tgz
+
+      - name: Prepare submission
+        run: |
+          mkdir -p autograder/secure/submission/features
+          if [ -d features ]; then
+            cp -R features/* autograder/secure/submission/features/
+          fi
+
+      - name: Run autograder
+        continue-on-error: true
+        run: |
+          mkdir -p autograder/results
+          cd autograder/secure
+          /bin/bash ./run_autograder
+
+      - name: Prepare grading results
+        id: prepare-results
+        if: always()
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+
+          results_path = "autograder/results/results.json"
+          tests = []
+          max_score = 0
+          if os.path.exists(results_path):
+            with open(results_path) as f:
+              data = json.load(f)
+            tests = data.get("tests", [])
+            max_score = data.get("max_score", 0)
+
+          if max_score == 0:
+            max_score = sum(t.get("max_score", 0) for t in tests)
+
+          formatted_tests = []
+          earned = 0
+          for t in tests:
+            score = t.get("score", 0)
+            earned += score
+            t_max = t.get("max_score", 0)
+            status = "pass" if score == t_max else "fail"
+            formatted_tests.append({
+              "name": t.get("name", "Unnamed test"),
+              "status": status,
+              "score": score,
+              "message": t.get("output", "") or "",
+              "test_code": "",
+              "filename": "",
+              "line_no": 0,
+              "duration": 0
+            })
+
+          overall_status = "pass" if max_score > 0 and earned == max_score else "fail"
+          payload = {
+            "version": 1,
+            "status": overall_status,
+            "max_score": max_score,
+            "tests": formatted_tests
+          }
+          encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"cucumber={encoded}\n")
+          PY
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        if: always()
+        env:
+          CUCUMBER_RESULTS: ${{ steps.prepare-results.outputs.cucumber }}
+        with:
+          runners: cucumber
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autograder-results
+          path: autograder/results/results.json

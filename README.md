@@ -4,9 +4,16 @@ In this assignment, you will create user stories to describe a feature of a SaaS
 
 [cuke]: https://cucumber.io/docs/guides/10-minute-tutorial/
 
-Specifically, you will write Cucumber scenarios that test the happy paths of parts 1-3 of the Rails Intro assignment, in which you added filtering and sorting to RottenPotatoes' `index` view for Movies. (Remember, the _happy paths_ are the steps users take when they successfully use an application.)
+Specifically, you will write Cucumber scenarios that test the happy paths of parts 1-3 of the Rails Intro assignment (hw03), in which you added filtering and sorting to RottenPotatoes' `index` view for Movies. (Remember, the _happy paths_ are the steps users take when they successfully use an application.)
 
 The app code in `rottenpotatoes` contains a "canonical" solution to the Rails Intro assignment against which to write your scenarios, and the necessary scaffolding for the first couple of scenarios.
+
+## What you need to do
+
+- Fill in the missing steps in `features/filter_movie_list.feature` and `features/sort_movie_list.feature`.
+- Implement the pending step definitions in `features/step_definitions/movie_steps.rb`.
+- Use the existing UI elements in the movies index page (ratings checkboxes, `sort_by` dropdown, `ratings_submit` button) when writing steps.
+- Run the acceptance tests with `bundle exec cucumber` and make sure they pass.
 
 ## Get the assignment code
 
