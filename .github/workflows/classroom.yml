@@ -52,6 +52,12 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p autograder/results
+          echo "Debug: autograder/secure contents"
+          ls -la autograder/secure
+          echo "Debug: autograder/submission contents"
+          ls -la autograder/submission
+          echo "Debug: autograder/submission/features contents"
+          ls -la autograder/submission/features
           cd autograder/secure
           /bin/bash ./run_autograder
 
@@ -104,12 +110,17 @@ jobs:
               env_file.write(f"{env_key}={encode_payload(test)}\n")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"runners={','.join(runners)}\n")
+            if runners:
+              f.write(f"runners={','.join(runners)}\n")
+            else:
+              f.write("runners=no-tests\n")
           PY
 
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         if: always()
+        env:
+          NO-TESTS_RESULTS: eyJ2ZXJzaW9uIjogMSwgInN0YXR1cyI6ICJmYWlsIiwgIm1heF9zY29yZSI6IDAsICJ0ZXN0cyI6IFtdfQ==
         with:
           runners: ${{ steps.prepare-results.outputs.runners }}
 
