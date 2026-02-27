@@ -24,10 +24,10 @@ Background: movies have been added to database
 
 Scenario: sort movies alphabetically
   When I select "Title" from "sort_by"
-  And I press "Refresh"
-  Then I should see "Aladdin" before "The Terminator" in the movie list
+  # your steps here
+  Then complete the rest of of this scenario
 
 Scenario: sort movies in increasing order of release date
   When I select "Release date" from "sort_by"
-  And I press "Refresh"
-  Then I should see "The Terminator" before "Aladdin" in the movie list
+  # your steps here
+  Then complete the rest of of this scenario
