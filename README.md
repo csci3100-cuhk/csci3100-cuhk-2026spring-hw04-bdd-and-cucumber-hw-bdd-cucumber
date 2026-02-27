@@ -15,7 +15,7 @@ The app code in `rottenpotatoes` contains a "canonical" solution to the Rails In
 - Use the existing UI elements in the movies index page (ratings checkboxes, `sort_by` dropdown, `ratings_submit` button) when writing steps.
 - Run the acceptance tests with `bundle exec cucumber` and make sure they pass.
 
-## Get the assignment code
+<!-- ## Get the assignment code
 
 As in previous CHIPS, you will need to authenticate `git` with GitHub to clone the repository for this assignment. The clone URL below will require that you use [public key authentication](https://docs.codio.com/common/settings/github.html).
 
@@ -33,4 +33,4 @@ git clone git@github.com:saasbook/hw-bdd-cucumber.git rottenpotatoes
 cd rottenpotatoes
 ```
 
-**⚠️ Your directory must be named `rottenpotatoes`.**
+**⚠️ Your directory must be named `rottenpotatoes`.** -->
