@@ -66,54 +66,52 @@ jobs:
 
           results_path = "autograder/results/results.json"
           tests = []
-          max_score = 0
           if os.path.exists(results_path):
             with open(results_path) as f:
               data = json.load(f)
             tests = data.get("tests", [])
-            max_score = data.get("max_score", 0)
 
-          if max_score == 0:
-            max_score = sum(t.get("max_score", 0) for t in tests)
+          runners = []
 
-          formatted_tests = []
-          earned = 0
-          for t in tests:
-            score = t.get("score", 0)
-            earned += score
-            t_max = t.get("max_score", 0)
+          def encode_payload(test):
+            score = test.get("score", 0)
+            t_max = test.get("max_score", 0)
             status = "pass" if score == t_max else "fail"
-            formatted_tests.append({
-              "name": t.get("name", "Unnamed test"),
+            payload = {
+              "version": 1,
               "status": status,
-              "score": score,
-              "message": t.get("output", "") or "",
-              "test_code": "",
-              "filename": "",
-              "line_no": 0,
-              "duration": 0
-            })
+              "max_score": t_max,
+              "tests": [
+                {
+                  "name": test.get("name", "Unnamed test"),
+                  "status": status,
+                  "score": score,
+                  "message": test.get("output", "") or "",
+                  "test_code": "",
+                  "filename": "",
+                  "line_no": 0,
+                  "duration": 0
+                }
+              ]
+            }
+            return base64.b64encode(json.dumps(payload).encode()).decode()
 
-          overall_status = "pass" if max_score > 0 and earned == max_score else "fail"
-          payload = {
-            "version": 1,
-            "status": overall_status,
-            "max_score": max_score,
-            "tests": formatted_tests
-          }
-          encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+          for idx, test in enumerate(tests, start=1):
+            runner = f"test_{idx:03d}"
+            runners.append(runner)
+            env_key = f"{runner.upper()}_RESULTS"
+            with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write(f"{env_key}={encode_payload(test)}\n")
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            f.write(f"cucumber={encoded}\n")
+            f.write(f"runners={','.join(runners)}\n")
           PY
 
       - name: Autograding Reporter
         uses: classroom-resources/autograding-grading-reporter@v1
         if: always()
-        env:
-          CUCUMBER_RESULTS: ${{ steps.prepare-results.outputs.cucumber }}
         with:
-          runners: cucumber
+          runners: ${{ steps.prepare-results.outputs.runners }}
 
       - name: Upload results
         uses: actions/upload-artifact@v4
