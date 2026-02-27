@@ -59,7 +59,9 @@ jobs:
           echo "Debug: autograder/submission/features contents"
           ls -la autograder/submission/features
           cd autograder/secure
-          /bin/bash ./run_autograder
+          /bin/bash -x ./run_autograder
+          echo "Debug: autograder/results contents"
+          ls -la ../results
 
       - name: Prepare grading results
         id: prepare-results
