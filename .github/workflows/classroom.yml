@@ -43,9 +43,9 @@ jobs:
 
       - name: Prepare submission
         run: |
-          mkdir -p autograder/secure/submission/features
+          mkdir -p autograder/submission/features
           if [ -d features ]; then
-            cp -R features/* autograder/secure/submission/features/
+            cp -R features/* autograder/submission/features/
           fi
 
       - name: Run autograder
