@@ -43,9 +43,14 @@ jobs:
 
       - name: Prepare submission
         run: |
+          # Copy into both locations:
+          # 1. autograder/submission/features  (for reference)
+          # 2. autograder/secure/submission/features  (where run_autograder actually looks)
           mkdir -p autograder/submission/features
+          mkdir -p autograder/secure/submission/features
           if [ -d features ]; then
             cp -R features/* autograder/submission/features/
+            cp -R features/* autograder/secure/submission/features/
           fi
 
       - name: Run autograder
