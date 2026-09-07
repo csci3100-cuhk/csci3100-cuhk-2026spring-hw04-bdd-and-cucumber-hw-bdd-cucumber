@@ -19,18 +19,22 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        id: setup-ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
         with:
           ruby-version: "3.3.8"
           bundler-cache: false
 
       - name: Install system dependencies
+        id: system-dependencies
         run: sudo apt-get update && sudo apt-get install -y libxml2-dev libxslt1-dev libsqlite3-dev
 
       - name: Decrypt autograder
+        id: decrypt-autograder
         env:
           AUTOGRADER_KEY: ${{ secrets.HW04_AUTOGRADER_KEY }}
         run: |
@@ -42,6 +46,7 @@ jobs:
           rm -f /tmp/autograder.tgz
 
       - name: Prepare submission
+        id: prepare-submission
         run: |
           # Copy into both locations:
           # 1. autograder/submission/features  (for reference)
@@ -54,6 +59,7 @@ jobs:
           fi
 
       - name: Run autograder
+        id: run-autograder
         continue-on-error: true
         run: |
           mkdir -p autograder/results
@@ -141,14 +147,97 @@ jobs:
           PY
 
       - name: Autograding Reporter
-        uses: classroom-resources/autograding-grading-reporter@v1
+        uses: classroom-resources/autograding-grading-reporter@d13b5912daf5042ac1b71bc38bdb4a6bcd61d8ca
         if: always()
         with:
           runners: ${{ steps.prepare-results.outputs.runners }}
 
-      - name: Upload results
-        uses: actions/upload-artifact@v4
+      - name: Generate grade result
+        if: always()
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          SETUP_RUBY_OUTCOME: ${{ steps.setup-ruby.outcome }}
+          SYSTEM_DEPENDENCIES_OUTCOME: ${{ steps.system-dependencies.outcome }}
+          DECRYPT_OUTCOME: ${{ steps.decrypt-autograder.outcome }}
+          PREPARE_SUBMISSION_OUTCOME: ${{ steps.prepare-submission.outcome }}
+          RUN_AUTOGRADER_OUTCOME: ${{ steps.run-autograder.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          expected_names = [
+              "EXPECT PASS: sort movies alphabetically",
+              "EXPECT PASS: sort movies in increasing order of release date",
+              "EXPECT PASS: restrict to movies with \"PG\" or \"R\" ratings",
+              "EXPECT PASS: all ratings selected",
+              "EXPECT FAIL: sort movies alphabetically",
+              "EXPECT FAIL: sort movies in increasing order of release date",
+              "EXPECT FAIL: restrict to movies with \"PG\" or \"R\" ratings",
+              "EXPECT FAIL: all ratings selected",
+          ]
+          results_path = "autograder/results/results.json"
+          source_tests = []
+          errors = []
+          infrastructure = {
+              "checkout": os.environ.get("CHECKOUT_OUTCOME"),
+              "setup-ruby": os.environ.get("SETUP_RUBY_OUTCOME"),
+              "system-dependencies": os.environ.get("SYSTEM_DEPENDENCIES_OUTCOME"),
+              "decrypt-autograder": os.environ.get("DECRYPT_OUTCOME"),
+              "prepare-submission": os.environ.get("PREPARE_SUBMISSION_OUTCOME"),
+              "run-autograder": os.environ.get("RUN_AUTOGRADER_OUTCOME"),
+          }
+          errors.extend(f"{name}={outcome or 'not_run'}" for name, outcome in infrastructure.items()
+                        if outcome != "success")
+          if os.path.exists(results_path):
+              try:
+                  with open(results_path, encoding="utf-8") as source:
+                      source_tests = json.load(source).get("tests", [])
+              except Exception as exc:
+                  errors.append(f"invalid results.json: {exc}")
+          else:
+              errors.append("missing results.json")
+
+          by_name = {test.get("name"): test for test in source_tests}
+          tests = []
+          for name in expected_names:
+              source = by_name.get(name)
+              maximum = source.get("max_score", 0) if source else 0
+              score = source.get("score", 0) if source else 0
+              if maximum <= 0:
+                  errors.append(f"missing maximum for {name}")
+              tests.append({
+                  "name": name,
+                  "score": score,
+                  "max_score": maximum,
+                  "status": "passed" if maximum > 0 and score == maximum else "failed",
+                  "message": (source.get("output", "") or "") if source else "Missing test result",
+              })
+
+          result = {
+              "schema": "cuhk-csci3100-grade/v1",
+              "assignment": "hw04",
+              "head_sha": os.environ["HEAD_SHA"],
+              "score": sum(test["score"] for test in tests),
+              "max_score": 100,
+              "tests": tests,
+          }
+          if sum(test["max_score"] for test in tests) != 100:
+              errors.append("test maximums do not sum to the frozen maximum of 100")
+          if errors:
+              result["status"] = "grading_error"
+              result["message"] = "; ".join(errors)
+          with open("grade-result.json", "w", encoding="utf-8") as output:
+              json.dump(result, output, ensure_ascii=False, indent=2, allow_nan=False)
+              output.write("\n")
+          PY
+
+      - name: Upload grade result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: autograder-results
-          path: autograder/results/results.json
+          name: csci3100-grade-result
+          path: grade-result.json
+          if-no-files-found: error
+          retention-days: 30
